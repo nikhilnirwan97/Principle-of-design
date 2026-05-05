@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YamunaWatch — Pollution Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<!-- SIDEBAR NAV -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M12 2C12 2 4 10.5 4 15.5A8 8 0 0020 15.5C20 10.5 12 2 12 2Z" fill="#2a9d8f"/></svg>
+    <span>YamunaWatch</span>
+  </div>
+  <nav class="sidebar-nav">
+    <a class="nav-link active" data-page="dashboard" onclick="showPage('dashboard')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Dashboard
+    </a>
+    <a class="nav-link" data-page="map" onclick="showPage('map')">
+      <svg viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+      Live Map
+    </a>
+    <a class="nav-link" data-page="analytics" onclick="showPage('analytics')">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      Analytics
+    </a>
+    <a class="nav-link" data-page="report" onclick="showPage('report')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      Report Incident
+    </a>
+    <a class="nav-link" data-page="reports" onclick="showPage('reports')">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      All Reports
+    </a>
+    <a class="nav-link" data-page="alerts" onclick="showPage('alerts')">
+      <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+      Alerts
+    </a>
+    <a class="nav-link" data-page="profile" onclick="showPage('profile')">
+      <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      My Profile
+    </a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="user-info" id="sidebar-user">
+      <div class="user-avatar" id="user-avatar-initials">—</div>
+      <div>
+        <div class="user-name" id="sidebar-user-name">Loading…</div>
+        <div class="user-role" id="sidebar-user-role"></div>
+      </div>
+    </div>
+    <div class="live-badge" style="margin-top:12px"><span class="pulse"></span> LIVE MONITORING</div>
+    <button onclick="doLogout()" class="logout-btn">↩ Log Out</button>
+  </div>
+</aside>
+
+<!-- TOPBAR (mobile) -->
+<div class="topbar">
+  <button onclick="document.getElementById('sidebar').classList.toggle('open')" class="hamburger">☰</button>
+  <div class="topbar-logo">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2C12 2 4 10.5 4 15.5A8 8 0 0020 15.5C20 10.5 12 2 12 2Z" fill="#2a9d8f"/></svg>
+    YamunaWatch
+  </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<main class="main-content">
+
+  <!-- ═══ DASHBOARD ═══ -->
+  <section id="page-dashboard" class="page active">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Yamuna River Dashboard</h1>
+        <p class="page-sub">Real-time pollution monitoring · Updated every 10 seconds</p>
+      </div>
+      <select id="station-select" class="station-select" onchange="changeStation(this.value)">
+        <option value="1">📍 Palla (Upstream)</option>
+        <option value="2">📍 Wazirabad</option>
+        <option value="3" selected>📍 Nizamuddin (Worst)</option>
+        <option value="4">📍 Okhla</option>
+        <option value="5">📍 Agra Canal</option>
+      </select>
+    </div>
+
+    <!-- Score Banner -->
+    <div class="score-banner" id="score-banner">
+      <div class="score-left">
+        <div class="score-label">HEALTH SCORE</div>
+        <div class="score-number" id="score-num">—</div>
+        <div class="score-status" id="score-status">Loading…</div>
+      </div>
+      <div class="score-bar-wrap">
+        <div class="score-bar-track">
+          <div class="score-bar-fill" id="score-bar"></div>
+          <div class="score-marker" id="score-marker"></div>
+        </div>
+        <div class="score-bar-labels"><span>0 Critical</span><span>50 Moderate</span><span>100 Clean</span></div>
+      </div>
+      <div class="score-meta">
+        <span id="station-name-badge">Station: —</span>
+        <span id="live-timestamp">—</span>
+      </div>
+    </div>
+
+    <!-- Metric Cards -->
+    <div class="metrics-grid" id="metrics-grid">
+      <div class="metric-card" id="mc-bod">
+        <div class="mc-top"><span class="mc-name">BOD Level</span><span class="mc-badge" id="b-bod">—</span></div>
+        <div class="mc-value" id="v-bod">—</div>
+        <div class="mc-unit">mg/L &nbsp;<small>Normal &lt; 3</small></div>
+        <div class="mc-bar-bg"><div class="mc-bar-fill" id="bar-bod"></div></div>
+      </div>
+      <div class="metric-card" id="mc-do">
+        <div class="mc-top"><span class="mc-name">Dissolved O₂</span><span class="mc-badge" id="b-do">—</span></div>
+        <div class="mc-value" id="v-do">—</div>
+        <div class="mc-unit">mg/L &nbsp;<small>Normal &gt; 6</small></div>
+        <div class="mc-bar-bg"><div class="mc-bar-fill" id="bar-do"></div></div>
+      </div>
+      <div class="metric-card" id="mc-ph">
+        <div class="mc-top"><span class="mc-name">pH Level</span><span class="mc-badge" id="b-ph">—</span></div>
+        <div class="mc-value" id="v-ph">—</div>
+        <div class="mc-unit">&nbsp;<small>Ideal 6.5–8.5</small></div>
+        <div class="mc-bar-bg"><div class="mc-bar-fill" id="bar-ph"></div></div>
+      </div>
+      <div class="metric-card" id="mc-turb">
+        <div class="mc-top"><span class="mc-name">Turbidity</span><span class="mc-badge" id="b-turb">—</span></div>
+        <div class="mc-value" id="v-turb">—</div>
+        <div class="mc-unit">NTU &nbsp;<small>Normal &lt; 10</small></div>
+        <div class="mc-bar-bg"><div class="mc-bar-fill" id="bar-turb"></div></div>
+      </div>
+      <div class="metric-card" id="mc-nit">
+        <div class="mc-top"><span class="mc-name">Nitrates</span><span class="mc-badge" id="b-nit">—</span></div>
+        <div class="mc-value" id="v-nit">—</div>
+        <div class="mc-unit">mg/L &nbsp;<small>Normal &lt; 10</small></div>
+        <div class="mc-bar-bg"><div class="mc-bar-fill" id="bar-nit"></div></div>
+      </div>
+      <div class="metric-card" id="mc-col">
+        <div class="mc-top"><span class="mc-name">Coliform Bacteria</span><span class="mc-badge" id="b-col">—</span></div>
+        <div class="mc-value col-val" id="v-col">—</div>
+        <div class="mc-unit">MPN/100mL</div>
+      </div>
+    </div>
+
+    <!-- Station Comparison -->
+    <div class="section-card">
+      <div class="section-header"><h2>Station Comparison</h2><span class="section-sub">All monitoring points</span></div>
+      <div id="station-table-wrap">
+        <table class="station-table">
+          <thead><tr><th>Station</th><th>Stretch</th><th>Score</th><th>BOD</th><th>DO</th><th>pH</th><th>Status</th></tr></thead>
+          <tbody id="station-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ MAP ═══ -->
+  <section id="page-map" class="page">
+    <div class="page-header"><h1 class="page-title">Live Pollution Map</h1></div>
+    <div class="map-controls-bar">
+      <span class="filter-pill active" onclick="filterMap('ALL',this)">All</span>
+      <span class="filter-pill" onclick="filterMap('SEWAGE',this)">Sewage</span>
+      <span class="filter-pill" onclick="filterMap('INDUSTRIAL',this)">Industrial</span>
+      <span class="filter-pill" onclick="filterMap('SOLID',this)">Solid Waste</span>
+    </div>
+    <div id="leaflet-map"></div>
+    <div class="map-legend">
+      <div class="legend-item"><span class="legend-dot" style="background:#e63946"></span>Critical</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#f4a261"></span>High</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#2a9d8f"></span>Resolved</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#adb5bd"></span>Monitoring</div>
+    </div>
+  </section>
+
+  <!-- ═══ ANALYTICS ═══ -->
+  <section id="page-analytics" class="page">
+    <div class="page-header">
+      <h1 class="page-title">Analytics</h1>
+      <select id="chart-station" class="station-select" onchange="loadCharts(this.value)">
+        <option value="1">Palla</option><option value="2">Wazirabad</option>
+        <option value="3" selected>Nizamuddin</option><option value="4">Okhla</option><option value="5">Agra Canal</option>
+      </select>
+    </div>
+    <div class="charts-grid">
+      <div class="chart-card"><h3>BOD Level — Last 2 Hours</h3><canvas id="chart-bod"></canvas></div>
+      <div class="chart-card"><h3>Dissolved Oxygen — Last 2 Hours</h3><canvas id="chart-do"></canvas></div>
+    </div>
+  </section>
+
+  <!-- ═══ REPORT FORM ═══ -->
+  <section id="page-report" class="page">
+    <div class="page-header"><h1 class="page-title">Report a Pollution Incident</h1><p class="page-sub">Your report is saved and reviewed by authorities</p></div>
+    <div class="form-wrap">
+      <form id="report-form" onsubmit="submitReport(event)" enctype="multipart/form-data">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Incident Type *</label>
+            <select name="type" required>
+              <option value="Sewage Overflow">Sewage Overflow</option>
+              <option value="Industrial Waste">Industrial Waste</option>
+              <option value="Solid Waste Dumping">Solid Waste Dumping</option>
+              <option value="Chemical Spill">Chemical Spill</option>
+              <option value="Foam/Froth">Foam/Froth</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Severity *</label>
+            <select name="severity" required>
+              <option value="CRITICAL">🔴 Critical</option>
+              <option value="HIGH">🟠 High</option>
+              <option value="MEDIUM" selected>🟡 Medium</option>
+              <option value="LOW">🟢 Low</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Nearest Station *</label>
+            <select name="station" required>
+              <option value="Palla">Palla</option>
+              <option value="Wazirabad">Wazirabad</option>
+              <option value="Nizamuddin">Nizamuddin</option>
+              <option value="Okhla">Okhla</option>
+              <option value="Agra Canal">Agra Canal</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Location / Landmark *</label>
+            <input type="text" name="location" placeholder="e.g. Near Wazirabad Bridge" required>
+          </div>
+        </div>
+        <div class="form-group full">
+          <label>Description *</label>
+          <textarea name="description" rows="4" placeholder="Describe what you observed — odour, colour, source, extent…" required maxlength="500" oninput="updateCounter(this)"></textarea>
+          <span class="char-count" id="desc-counter">0/500</span>
+        </div>
+        <div class="form-group full">
+          <label>Upload Evidence Photo</label>
+          <div class="upload-zone" id="upload-zone" onclick="document.getElementById('photo-input').click()" ondrop="dropFile(event)" ondragover="event.preventDefault()">
+            <svg width="40" height="40" viewBox="0 0 24 24" stroke="#2a9d8f" fill="none"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <p>Drag & drop or <strong>click to browse</strong></p>
+            <p class="upload-hint">JPG, PNG, WebP up to 16 MB</p>
+          </div>
+          <input type="file" id="photo-input" name="photo" accept="image/*" style="display:none" onchange="previewPhoto(this)">
+          <img id="photo-preview" class="photo-preview" style="display:none">
+        </div>
+        <input type="hidden" name="lat" id="form-lat">
+        <input type="hidden" name="lng" id="form-lng">
+        <div class="form-actions">
+          <button type="button" class="btn-secondary" onclick="getGPS()">📍 Use My GPS</button>
+          <button type="submit" class="btn-primary" id="submit-btn">Submit Report</button>
+        </div>
+        <div id="form-msg" class="form-msg" style="display:none"></div>
+      </form>
+    </div>
+  </section>
+
+  <!-- ═══ ALL REPORTS ═══ -->
+  <section id="page-reports" class="page">
+    <div class="page-header"><h1 class="page-title">All Reports</h1>
+      <div class="filter-tabs" id="report-filters">
+        <span class="filter-pill active" onclick="loadReports('ALL',this)">All</span>
+        <span class="filter-pill" onclick="loadReports('PENDING',this)">Pending</span>
+        <span class="filter-pill" onclick="loadReports('ASSIGNED',this)">Assigned</span>
+        <span class="filter-pill" onclick="loadReports('RESOLVED',this)">Resolved</span>
+      </div>
+    </div>
+    <div id="reports-list"></div>
+  </section>
+
+  <!-- ═══ ALERTS ═══ -->
+  <section id="page-alerts" class="page">
+    <div class="page-header"><h1 class="page-title">Active Alerts</h1></div>
+    <div id="alerts-list"></div>
+  </section>
+
+  <!-- ═══ PROFILE ═══ -->
+  <section id="page-profile" class="page">
+    <div class="page-header"><h1 class="page-title">My Profile</h1></div>
+    <div class="profile-grid">
+      <div class="profile-card">
+        <div class="profile-avatar" id="prof-avatar">?</div>
+        <h2 id="prof-name">—</h2>
+        <p id="prof-role" class="prof-role">—</p>
+      </div>
+      <div class="profile-stats">
+        <div class="pstat-card">
+          <div class="pstat-val" id="pstat-total">—</div>
+          <div class="pstat-lbl">Total Reports</div>
+        </div>
+        <div class="pstat-card">
+          <div class="pstat-val" id="pstat-pending">—</div>
+          <div class="pstat-lbl">Pending</div>
+        </div>
+        <div class="pstat-card good">
+          <div class="pstat-val" id="pstat-resolved">—</div>
+          <div class="pstat-lbl">Resolved</div>
+        </div>
+        <div class="pstat-card impact">
+          <div class="pstat-val" id="pstat-impact">—</div>
+          <div class="pstat-lbl">Impact Score</div>
+        </div>
+      </div>
+    </div>
+    <div class="section-card" style="margin-top:24px">
+      <div class="section-header"><h2>My Reports</h2></div>
+      <div id="my-reports-list"></div>
+    </div>
+  </section>
+
+</main>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<!-- Scripts -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

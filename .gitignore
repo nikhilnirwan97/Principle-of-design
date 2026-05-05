@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment (NEVER commit this)
+.env
+
+# Local database (not needed on Vercel — uses Supabase)
+yamuna.db
+
+# Uploaded files (stored on Supabase Storage, not locally)
+static/uploads/*
+!static/uploads/.gitkeep
